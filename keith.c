@@ -1,187 +1,127 @@
+#include <sys\timeb.h>
 #include<stdio.h>
 #include<stdlib.h>
-#include <gmp.h>
+#include <mpir.h>
 #include<math.h>
 #include<string.h>
+#include<memory.h>
+#include<assert.h>
+#include<stdint.h>
+
+#define DIGITS 7
+#define SUM 7
+#define START 8
+#define END 9
 
 
-/* Queue */
-typedef struct Queue
-{
-  int front;
-  int rear;
-  int size;
-  int capacity;
-  mpz_t **elements;
-}Queue;
-
-Queue * createQ(int);
-void enQ(Queue *,mpz_t*);
-void advanceQ(Queue *);
-void printQ(Queue *);
-
-void sumQ(mpz_t *,Queue *);
-int isKeith(Queue *,mpz_t*,mpz_t*);
 
 
 int main(int argc, char *argv[])
-{
-  mpz_t start;
-  mpz_t end;
-  char startString[256];
-  char endString[256];
-  char digitBuffer[2];
-  int numDigits;
- 
-  if (argc < 2) exit (1);
-  numDigits = atoi(argv[1]);
+{	
+	mpz_t queue[DIGITS + 3]; //+3 because we are being insane
+	char startString[DIGITS+1]; //leave room for a string terminator
+	char endString[DIGITS+1];		
 
-  printf("numDigits:%d\n",numDigits);
-  for (int i = 0; i < numDigits; i++)
-    {
-      printf("Setting string at:%d\n",i);
-      startString[i] = '0';
-      endString[i] = '9';
-    }
-  startString[0] = '1';
-  startString[numDigits] = '\0';
-  endString[numDigits] = '\0';
 
-  printf("startstring:%s\n",startString);
-  printf("endString:%s\n",endString);
-  
-  mpz_init(start);
-  mpz_init(end);
- 
-  mpz_set_str(start,startString,10);   
-  mpz_set_str(end,endString,10);
-
- 
- 
-  Queue *Q = createQ(numDigits);
-  
- for (int i = 0; i < numDigits; i++)
-   {	 
-     mpz_t *digit;
-     digit = (mpz_t *)malloc(sizeof(mpz_t));
-     mpz_init(*digit);
-     enQ(Q,digit);
-     // printf("allocating one digit");
-   }
-
- mpz_t sum;
- mpz_init(sum);
- digitBuffer[1] = '\0';
-
-  while (mpz_cmp(start,end) <= 0)
-    {
-      //      Q->front = 0;
-      Q->rear = 0;
-      char *s;
-    
-      for (int i = 0; i < numDigits; i++)
+	//all of our GMP numbers will be in here, all in memory together
+	for (unsigned char i = 0; i < DIGITS + 3; i++)
 	{
-	  s = mpz_get_str(NULL,10,start);	 	  
-	  digitBuffer[0] = s[i];	 
-	  mpz_set_str(*Q->elements[i],digitBuffer,10);
-	  //	  gmp_printf("setting digit:%Zd\n",Q->elements[Q->rear]);	 
+		mpz_init(queue[i]);		
+	}
+		
+	//For the number of digits we are searching
+	//Set up start and end numbers. ex: 100 through 999
+	for (unsigned char i = 0; i < DIGITS; i++)
+	{
+		printf("Setting string at:%d\n", i);
+		startString[i] = '0';
+		endString[i] = '9';
+	}
+	startString[0] = '1';
+	startString[DIGITS] = '\0';
+	endString[DIGITS] = '\0';
 
+	printf("startstring:%s\n", startString);
+	printf("endString:%s\n", endString);
+
+	//use the strings to set the start and end GMP numbers
+	mpz_set_str(queue[START], startString, 10);
+	mpz_set_str(queue[END], endString, 10);
+
+	//to evaluate how fast we went	
+	struct timeb starttime, endtime;
+	int diff;
+	ftime(&starttime);
+			
+	//keep an array around of the digits of the current number we are checking
+	//this makes it faster to set up new GMP numbers, rather than using a string
+	unsigned char digits[DIGITS];
+	char *s = mpz_get_str(NULL, 10, queue[START]);
+	for (unsigned char i = 0; i < DIGITS; i++)
+	{
+		digits[i] = s[i] - '0';
 	}
 
-    
-      // gmp_printf("checking %Zd\n",start);
-      int result = isKeith(Q,&start,&sum);
-      if (result == 0) {      
-      } else {
-	gmp_printf("%Zd\n",start);
-      }
-     
-      mpz_add_ui(start,start,1);
-    }
-  return 0;
-
-}
-
-int isKeith(Queue *Q,mpz_t *n,mpz_t *sum)
-{
-  //  gmp_printf("num: %Zd\n",n);
- 
- 
-  while (1==1) {
-    //   printQ(Q);
-    sumQ(sum,Q);    
-    int r = mpz_cmp(*sum,*n);
-    if (r > 0) return 0;
-    if (r == 0) return 1;
-    mpz_set(*Q->elements[Q->rear],*sum);
-    advanceQ(Q);
-    // gmp_printf("sum: %Zd\n",sum);
-  } 
-
-   
-  return 0;
-}
-
-void printQ(Queue *Q)
-{
-  printf("[");
-  for (int i = 0; i < Q->size;i++)
-    {
-      gmp_printf("%Zd,",Q->elements[i]);
-    }
-  printf("]\n");
-}
-
-void sumQ(mpz_t *s, Queue *Q)
-{
-  mpz_set_ui(*s,0);
-  for (int i = 0;i < Q->size; i++)
-    {
-      // gmp_printf("loop %d:%Zd",i,*Q->elements[i]);
-      mpz_add(*s,*s,*Q->elements[i]);
-    }
- 
-}
-
-
-Queue * createQ(int max)
-{
-  Queue *Q;
-  Q = (Queue *)malloc(sizeof(Queue));
-  Q->elements = (mpz_t **)malloc(sizeof(mpz_t *)*max);
-  Q->size = 0;
-  Q->capacity = max;
-  Q->front = 0;
-  Q->rear = -1;
-  return Q;
-}
-
-
- void advanceQ(Queue *Q)
- {
-  
-   Q->rear = (Q->rear +1) % Q->capacity;
-  
-    
-  return;
- }
-
-void enQ(Queue *Q, mpz_t* element)
-{
-  if (Q->size == Q->capacity)
-    {
-      printf("Q is Full");
-    }
-  else 
-    {
-      Q->size++;
-      Q->rear = Q->rear + 1;
-      if (Q->rear == Q->capacity)
+	//an index into out position in the 'queue'
+	int idx = 0;
+	while (mpz_cmp(queue[START], queue[END]) <= 0)
 	{
-	  Q->rear = 0;
+		//set each GMP number in the queue to a digit in the current number being checked
+		idx = 0;
+		for (int i = 0; i < DIGITS; i++)
+		{						
+			mpz_set_ui(queue[i], digits[i]);			
+		}
+			
+		//check if the current number is a keith number
+		int r = -1;		
+		while (r<0) {			
+			mpz_set(queue[SUM], queue[0]);
+			for (unsigned char i = 1; i < DIGITS; i++)
+			{				
+				//90% of execution time is in this add method
+				mpz_add(queue[SUM], queue[SUM], queue[i]);
+			}
+			r = mpz_cmp(queue[SUM], queue[START]);
+			//swap is faster than set
+			mpz_swap(queue[idx],queue[SUM]);
+			//advance 1 in the queue
+			idx = (idx+1) % DIGITS;			
+		}
+		
+		//if r is 0 we found a keith number!
+		if (r==0)
+		{
+			gmp_printf("%Zd\n", queue[START]);
+		}
+		
+		//check the next number
+		mpz_add_ui(queue[START], queue[START], 1);
+		//update our digit array by one. 
+		for (int i = DIGITS - 1; i >= 0; i--)
+		{
+			if (digits[i] == 9)
+			{
+				digits[i] = 0;
+			}
+			else
+			{
+				digits[i]++;
+				break;
+			}
+		}
 	}
-      Q->elements[Q->rear] = element;
-    }
-  return;
+
+	ftime(&endtime);
+	diff = (int)(1000.0 * (endtime.time - starttime.time)
+		+ (endtime.millitm - starttime.millitm));
+
+	printf("Time Taken: %d\n", diff);
+	return 0;
+
 }
+
+
+
+
 
